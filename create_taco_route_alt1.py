@@ -10,10 +10,6 @@ import pprint
 import numpy as np
 from satsp import solver
 import matplotlib.pyplot as plt
-import sys
-import json
-sys.path.append('simulated-annealing-tsp')
-from anneal import SimAnneal
 
 def storeDataFrame(partial_dm, oreq, dreq, dfDist, dfTime):
     for oidx, oval in enumerate(partial_dm['rows']):
@@ -38,13 +34,12 @@ if __name__=='__main__':
         exit
     starting_vertex = starting_vertex[0]
     # Search nearby that position within a radius of 3km
-    max_places = 20 # Maximum is 60
+    max_places = 6 # Maximum is 60
     places = gmaps.places_nearby(
             location = starting_vertex['geometry']['location'],
-    #        radius = 1000,
+            radius = 3000,
             keyword = "tacos",
-    #        rank_by = "prominence")
-            rank_by = "distance")
+            rank_by = "prominence")
     results = places['results']
     while len(results) < max_places and 'next_page_token' in places:
         time.sleep(3)
@@ -69,15 +64,15 @@ if __name__=='__main__':
     # Fill the dataframe
     keys = list(vertex.keys())
     partitions = list(itertools.product(np.array_split(np.array(keys), n//10+1), repeat=2))
-    # pprint.pprint(partitions)
-    # print('Algorithm:')
+    pprint.pprint(partitions)
+    print('Algorithm:')
     for partition in partitions:
-        # print(partition[0])
-        # print(partition[1])
+        print(partition[0])
+        print(partition[1])
         partial_dm = gmaps.distance_matrix(
                 [vertex[v]['geometry']['location'] for v in partition[0]],
                 [vertex[v]['geometry']['location'] for v in partition[1]])
-        # pprint.pprint(partial_dm)
+        pprint.pprint(partial_dm)
         storeDataFrame(partial_dm, partition[0], partition[1], dfDist, dfTime)
         time.sleep(3)
     dfDist.to_csv('dfDist.csv')
@@ -85,32 +80,11 @@ if __name__=='__main__':
     city_list = []
     for idx, v in enumerate(vertex.keys()):
         loc = vertex[v]['geometry']['location']
-        city_list.append([loc['lat'], loc['lng']])
-    pprint.pprint(city_list)
-    saDist = SimAnneal(coords=city_list,dist=dfDist.to_numpy(),alpha=0.999, stopping_iter=1000000)
-    saDist.batch_anneal(times=30)
-    solidxs = saDist.best_solution
-    startidx = list(vertex.keys()).index(starting_vertex['place_id'])
-    solidxs = solidxs[solidxs.index(startidx):] + solidxs[0:solidxs.index(startidx)]
-    solidxs.append(solidxs[0])
-    print(f'https://www.google.com/maps/dir/' + ('/').join([(',').join([str(s) for s in city_list[idx]]) for idx in solidxs]))
-    print(f'https://maps.openrouteservice.org/directions?' + 
-            'n1=' + str(city_list[solidxs[0]][0]) + 
-            '&n2=' + str(city_list[solidxs[0]][1]) +
-            '&n3=13' +
-            '&a=' + ','.join(','.join([str(s) for s in city_list[idx]]) for idx in solidxs) +
-            '&b=0&c=0&k1=en-US&k2=km')
-    data = [{'lat': city_list[idx][0], 'lng': city_list[idx][1]} for idx in solidxs]
-    with open('saDist.json','w') as write_file:
-        json.dump(data, write_file)
-    saTime = SimAnneal(coords=city_list,dist=dfTime.to_numpy(),alpha=0.999, stopping_iter=1000000)
-    saTime.batch_anneal(times=30)
-    solidxs = saTime.best_solution
-    solidxs.append(solidxs[0])
-    print(f'https://www.google.com/maps/dir/' + ('/').join([(',').join([str(s) for s in city_list[idx]]) for idx in solidxs]))
-    print(f'https://maps.openrouteservice.org/directions?' + 
-            'n1=' + str(city_list[solidxs[0]][0]) + 
-            '&n2=' + str(city_list[solidxs[0]][1]) +
-            '&n3=13' +
-            '&a=' + ','.join(','.join([str(s) for s in city_list[idx]]) for idx in solidxs) +
-            '&b=0&c=0&k1=en-US&k2=km')
+        city_list.append([idx, loc['lat'], loc['lng']])
+    solver.Solve(
+            city_list=city_list,
+            dist_matrix=dfTime.to_numpy())
+    solver.PrintSolution()
+    solver.PrintBestTour()
+    # Fill distance_matrix
+
