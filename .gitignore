@@ -1,2 +1,5 @@
 .env
 Pipfile.lock
+*.png
+*.json
+*.csv
